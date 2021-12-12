@@ -16,7 +16,7 @@ Dependencies
 ------------
 
 * xterm with Sixel support configured
-* imagemagick (for converting the graphics)
+* libsixel python bindings
 * matplotlib and numpy
 
 Installation

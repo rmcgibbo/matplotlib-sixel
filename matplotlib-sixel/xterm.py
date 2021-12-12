@@ -39,7 +39,9 @@ def xterm_pixels():
         stdout.flush()
 
         c = stdin.read(1)
-        assert c == '\x1b'
+        if c != '\x1b':
+            return None
+
         read_until(stdin, ';')
         height = read_until(stdin, ';')
         width = read_until(stdin, 't')

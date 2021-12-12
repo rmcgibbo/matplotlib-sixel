@@ -13,10 +13,12 @@ Based on the ipykernel source  code "backend_inline.py"
 
 import matplotlib
 
+from io import BytesIO
 from matplotlib._pylab_helpers import Gcf
 from subprocess import Popen, PIPE
 
 from .xterm import xterm_pixels
+from libsixel import sixel_output_new, sixel_dither_new, sixel_dither_initialize, sixel_dither_unref, sixel_encode, SIXEL_PIXELFORMAT_RGB888
 
 from matplotlib.backends.backend_agg import new_figure_manager, FigureCanvasAgg
 new_figure_manager  # for check
@@ -29,29 +31,40 @@ def resize_fig(figure):
     Only makes the figure smaller
 
     """
+    terminal_pixels = xterm_pixels()
+    if terminal_pixels is None:
+        return
+
     dpi = figure.get_dpi()
     size = figure.get_size_inches()  # w, h
     pixel_size = size * dpi
 
-    pixel_factor = pixel_size / xterm_pixels()
+    pixel_factor = pixel_size / terminal_pixels
 
     factor = max(max(pixel_factor), 1)
 
     size /= factor
 
     figure.set_size_inches(size)
-    print(size)
 
 
 def display(figure):
     """ Display figure on stdout as sixel graphic """
 
-    resize_fig(figure)
+    figure.canvas.draw()
+    data = figure.canvas.tostring_rgb()
 
-    p = Popen(["convert", "-colors", '16', 'png:-', 'sixel:-'], stdin=PIPE)
-    figure.savefig(p.stdin, format='png')
-    p.stdin.close()
-    p.wait()
+    s = BytesIO()
+    output = sixel_output_new(lambda data, _: s.write(data))
+
+    width, height = figure.canvas.get_width_height()
+    dither = sixel_dither_new(256)
+    sixel_dither_initialize(dither, data, width, height, SIXEL_PIXELFORMAT_RGB888)
+    try:
+        sixel_encode(data, width, height, 1, dither, output)
+        print(s.getvalue().decode("ascii"))
+    finally:
+        sixel_dither_unref(dither)
 
 
 def show(close=False, block=None):
